@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback } from "react";
-import { Camera, Scan, Settings, RotateCcw } from "lucide-react";
+import { Camera, Scan, Settings, RotateCcw, Edit3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import WebcamFeed from "@/components/webcam-feed";
 import BarcodeScanner from "@/components/barcode-scanner";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +24,8 @@ export default function CameraStation() {
   const [detectedPlate, setDetectedPlate] = useState<string>("");
   const [scannedStudentId, setScannedStudentId] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [manualPlateInput, setManualPlateInput] = useState<string>("");
+  const [showManualInput, setShowManualInput] = useState(false);
   const { toast } = useToast();
   const { lastMessage } = useWebSocket();
 
@@ -65,16 +69,22 @@ export default function CameraStation() {
 
   const handlePlateDetection = useCallback((plateNumber: string) => {
     console.log("Detected plate:", plateNumber);
-    setDetectedPlate(plateNumber);
     
-    // Auto-verify if both plate and student ID are available
-    if (scannedStudentId && plateNumber) {
-      setIsVerifying(true);
-      verifyAccessMutation.mutate({
-        studentId: scannedStudentId,
-        plateNumber,
-        gateLocation,
-      });
+    // Validate the plate number format before setting it
+    if (plateNumber && plateNumber.trim().length > 0) {
+      setDetectedPlate(plateNumber);
+      
+      // Auto-verify if both plate and student ID are available
+      if (scannedStudentId && plateNumber) {
+        setIsVerifying(true);
+        verifyAccessMutation.mutate({
+          studentId: scannedStudentId,
+          plateNumber,
+          gateLocation,
+        });
+      }
+    } else {
+      console.log("Invalid or empty plate number detected");
     }
   }, [scannedStudentId, gateLocation, verifyAccessMutation]);
 
@@ -115,6 +125,32 @@ export default function CameraStation() {
     setDetectedPlate("");
     setScannedStudentId("");
     setIsVerifying(false);
+    setManualPlateInput("");
+    setShowManualInput(false);
+  };
+
+  const handleManualPlateSubmit = () => {
+    if (!manualPlateInput.trim()) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a valid vehicle number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDetectedPlate(manualPlateInput.trim());
+    setShowManualInput(false);
+    
+    // Auto-verify if student ID is also available
+    if (scannedStudentId) {
+      setIsVerifying(true);
+      verifyAccessMutation.mutate({
+        studentId: scannedStudentId,
+        plateNumber: manualPlateInput.trim(),
+        gateLocation,
+      });
+    }
   };
 
   return (
@@ -198,6 +234,63 @@ export default function CameraStation() {
                     </span>
                   </div>
                 </div>
+                
+                {/* Manual Input Section */}
+                {!detectedPlate && !showManualInput && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        If camera detection doesn't work, you can enter the number manually
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowManualInput(true)}
+                        className="w-full"
+                      >
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Enter Vehicle Number Manually
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {showManualInput && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-3">
+                    <div>
+                      <Label htmlFor="manual-plate" className="text-xs text-muted-foreground">
+                        Vehicle Number
+                      </Label>
+                      <Input
+                        id="manual-plate"
+                        placeholder="e.g., MH-02-AB-1234"
+                        value={manualPlateInput}
+                        onChange={(e) => setManualPlateInput(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        onClick={handleManualPlateSubmit}
+                        disabled={!manualPlateInput.trim()}
+                        className="flex-1"
+                      >
+                        Submit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowManualInput(false);
+                          setManualPlateInput("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
