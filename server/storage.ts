@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, desc, and, ilike, or } from "drizzle-orm";
+import { eq, desc, and, ilike, or, gte, lt } from "drizzle-orm";
 import { 
   students, vehicles, accessLogs, alerts,
   type Student, type InsertStudent,
@@ -235,8 +235,8 @@ export class DrizzleStorage implements IStorage {
       .select()
       .from(accessLogs)
       .where(and(
-        sql`${accessLogs.timestamp} >= ${today}`,
-        sql`${accessLogs.timestamp} < ${tomorrow}`
+        gte(accessLogs.timestamp, today),
+        lt(accessLogs.timestamp, tomorrow)
       ));
 
     const granted = todayLogs.filter(log => log.accessStatus === 'granted').length;

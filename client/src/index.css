@@ -148,62 +148,6 @@
   animation: slideIn 0.3s ease-out;
 }
 
-/* Success/Error state colors */
-.text-success {
-  color: hsl(var(--success));
-}
-
-.text-success-foreground {
-  color: hsl(var(--success-foreground));
-}
-
-.text-warning {
-  color: hsl(var(--warning));
-}
-
-.text-warning-foreground {
-  color: hsl(var(--warning-foreground));
-}
-
-.bg-success {
-  background-color: hsl(var(--success));
-}
-
-.bg-success\/10 {
-  background-color: hsl(var(--success) / 0.1);
-}
-
-.bg-success\/5 {
-  background-color: hsl(var(--success) / 0.05);
-}
-
-.bg-warning {
-  background-color: hsl(var(--warning));
-}
-
-.bg-warning\/10 {
-  background-color: hsl(var(--warning) / 0.1);
-}
-
-.bg-warning\/5 {
-  background-color: hsl(var(--warning) / 0.05);
-}
-
-.border-success {
-  border-color: hsl(var(--success));
-}
-
-.border-success\/20 {
-  border-color: hsl(var(--success) / 0.2);
-}
-
-.border-warning {
-  border-color: hsl(var(--warning));
-}
-
-.border-warning\/20 {
-  border-color: hsl(var(--warning) / 0.2);
-}
 
 /* Form elements */
 input[type="text"],
@@ -219,15 +163,6 @@ input[type="tel"]:focus,
 select:focus,
 textarea:focus {
   @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
-}
-
-/* Button variants to match design */
-.btn-success {
-  @apply bg-success text-success-foreground hover:bg-success/90;
-}
-
-.btn-warning {
-  @apply bg-warning text-warning-foreground hover:bg-warning/90;
 }
 
 /* Camera overlay styling */
