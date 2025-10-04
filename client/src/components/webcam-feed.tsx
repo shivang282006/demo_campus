@@ -18,8 +18,9 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
   const [lastOcrText, setLastOcrText] = useState<string>("");
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [ocrError, setOcrError] = useState<string>("");
-  const [continuousScanning, setContinuousScanning] = useState(false);
+  const [continuousScanning, setContinuousScanning] = useState(true); // Enable by default
   const [simpleMode, setSimpleMode] = useState(false);
+  const [autoScanEnabled, setAutoScanEnabled] = useState(true); // Auto-scan enabled by default
   
   const { videoRef, isStreaming, startStream, stopStream, captureFrame } = useWebcam();
 
@@ -274,29 +275,29 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
 
   // Auto-detect plates periodically when streaming
   useEffect(() => {
-    if (!isStreaming) return;
-
-    const interval = setInterval(() => {
-      if (!detectedPlate && !isProcessing) {
-        detectPlate();
-      }
-    }, simulationMode ? 3000 : (continuousScanning ? 2000 : 5000)); // Faster scanning
-
-    return () => clearInterval(interval);
-  }, [isStreaming, detectPlate, detectedPlate, isProcessing, simulationMode, continuousScanning]);
-
-  // Continuous scanning mode
-  useEffect(() => {
-    if (!continuousScanning || !isStreaming || detectedPlate) return;
+    if (!isStreaming || !autoScanEnabled) return;
 
     const interval = setInterval(() => {
       if (!isProcessing) {
         detectPlate();
       }
-    }, 1000); // Very fast continuous scanning
+    }, simulationMode ? 2000 : (continuousScanning ? 1500 : 3000)); // Much faster scanning
 
     return () => clearInterval(interval);
-  }, [continuousScanning, isStreaming, detectedPlate, isProcessing, detectPlate]);
+  }, [isStreaming, detectPlate, isProcessing, simulationMode, continuousScanning, autoScanEnabled]);
+
+  // Continuous scanning mode - very fast detection
+  useEffect(() => {
+    if (!continuousScanning || !isStreaming || !autoScanEnabled) return;
+
+    const interval = setInterval(() => {
+      if (!isProcessing) {
+        detectPlate();
+      }
+    }, 800); // Very fast continuous scanning - 800ms intervals
+
+    return () => clearInterval(interval);
+  }, [continuousScanning, isStreaming, autoScanEnabled, isProcessing, detectPlate]);
 
   // Reinitialize OCR when mode changes
   useEffect(() => {
@@ -408,8 +409,8 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
             {!detectedPlate && (
               <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-primary px-3 py-1 rounded text-sm font-semibold text-primary-foreground">
                 {simulationMode ? "Auto-scanning..." : 
-                 continuousScanning ? "Continuous scanning..." : 
-                 "Position vehicle anywhere in view"}
+                 autoScanEnabled ? (continuousScanning ? "Fast auto-scanning..." : "Auto-scanning...") : 
+                 "Position vehicle and click Detect Plate"}
               </div>
             )}
             
@@ -461,11 +462,22 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
         {!simulationMode && isOcrReady && (
           <Button
             variant="outline"
+            onClick={() => setAutoScanEnabled(!autoScanEnabled)}
+            data-testid="button-autoscan-toggle"
+            className={autoScanEnabled ? "bg-primary text-primary-foreground" : ""}
+          >
+            {autoScanEnabled ? "Disable" : "Enable"} Auto-Scan
+          </Button>
+        )}
+        
+        {!simulationMode && isOcrReady && autoScanEnabled && (
+          <Button
+            variant="outline"
             onClick={() => setContinuousScanning(!continuousScanning)}
             data-testid="button-continuous-scan"
-            className={continuousScanning ? "bg-primary text-primary-foreground" : ""}
+            className={continuousScanning ? "bg-green-500 text-white" : ""}
           >
-            {continuousScanning ? "Stop" : "Start"} Continuous
+            {continuousScanning ? "Fast" : "Normal"} Mode
           </Button>
         )}
         
