@@ -12,11 +12,14 @@ interface WebcamFeedProps {
 export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFeedProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [simulationMode, setSimulationMode] = useState(false);
   const [ocrWorker, setOcrWorker] = useState<any>(null);
   const [isOcrReady, setIsOcrReady] = useState(false);
   const [lastOcrText, setLastOcrText] = useState<string>("");
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [ocrError, setOcrError] = useState<string>("");
+  const [continuousScanning, setContinuousScanning] = useState(true); // Enable by default
+  const [simpleMode, setSimpleMode] = useState(false);
   const [autoScanEnabled, setAutoScanEnabled] = useState(true); // Auto-scan enabled by default
   
   const { videoRef, isStreaming, startStream, stopStream, captureFrame } = useWebcam();
@@ -36,11 +39,16 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
           }
         });
         
-        // Configure OCR for optimal performance
-        await worker.setParameters({
-          tessedit_pageseg_mode: '6' as any, // Uniform block of text
-          tessedit_ocr_engine_mode: 1, // LSTM only
-        });
+        // Configure OCR with more flexible settings
+        if (!simpleMode) {
+          await worker.setParameters({
+            tessedit_pageseg_mode: '6', // Uniform block of text
+            tessedit_ocr_engine_mode: '1', // LSTM only
+          });
+        } else {
+          // Simple mode - use default settings
+          console.log("Using simple OCR mode with default settings");
+        }
         
         console.log("OCR worker created and configured...");
         setOcrWorker(worker);
@@ -92,6 +100,19 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
     return isValid;
   }, []);
 
+  // Simulate plate detection for demo purposes (only when explicitly enabled)
+  const simulatePlateDetection = useCallback(() => {
+    if (!simulationMode) return;
+    
+    const mockPlates = ["MH-02-AB-1234", "MH-02-CD-5678", "MH-02-EF-3456", "MH-02-GH-7890"];
+    const randomPlate = mockPlates[Math.floor(Math.random() * mockPlates.length)];
+    
+    setIsProcessing(true);
+    setTimeout(() => {
+      onPlateDetected(randomPlate);
+      setIsProcessing(false);
+    }, 2000);
+  }, [simulationMode, onPlateDetected]);
 
   // Real plate detection implementation using OCR
   const detectPlate = useCallback(async () => {
@@ -104,6 +125,13 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
     setIsProcessing(true);
     
     try {
+      if (simulationMode) {
+        // Only use simulation when explicitly enabled
+        console.log("Using simulation mode");
+        simulatePlateDetection();
+        return;
+      }
+
       // Check if OCR is ready
       if (!isOcrReady || !ocrWorker) {
         console.log("OCR not ready yet - isOcrReady:", isOcrReady, "ocrWorker:", !!ocrWorker);
@@ -179,7 +207,7 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
         }
         
         // Use fallback text
-        const lines = fallbackText.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
+        const lines = fallbackText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
         console.log("Fallback OCR lines:", lines);
         
         for (const line of lines) {
@@ -200,7 +228,7 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
       }
 
       // Extract potential license plate numbers from the OCR text
-      const lines = text.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
       console.log("OCR lines:", lines);
       
       for (const line of lines) {
@@ -243,9 +271,9 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
       setOcrError(`OCR processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsProcessing(false);
     }
-  }, [videoRef, captureFrame, isProcessing, isOcrReady, ocrWorker, validatePlateNumber, onPlateDetected]);
+  }, [videoRef, captureFrame, isProcessing, simulatePlateDetection, simulationMode, isOcrReady, ocrWorker, validatePlateNumber, onPlateDetected]);
 
-  // Fast auto-scanning - always enabled when streaming
+  // Auto-detect plates periodically when streaming
   useEffect(() => {
     if (!isStreaming || !autoScanEnabled) return;
 
@@ -253,11 +281,67 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
       if (!isProcessing) {
         detectPlate();
       }
-    }, 800); // Fast scanning - 800ms intervals
+    }, simulationMode ? 2000 : (continuousScanning ? 1500 : 3000)); // Much faster scanning
 
     return () => clearInterval(interval);
-  }, [isStreaming, detectPlate, isProcessing, autoScanEnabled]);
+  }, [isStreaming, detectPlate, isProcessing, simulationMode, continuousScanning, autoScanEnabled]);
 
+  // Continuous scanning mode - very fast detection
+  useEffect(() => {
+    if (!continuousScanning || !isStreaming || !autoScanEnabled) return;
+
+    const interval = setInterval(() => {
+      if (!isProcessing) {
+        detectPlate();
+      }
+    }, 800); // Very fast continuous scanning - 800ms intervals
+
+    return () => clearInterval(interval);
+  }, [continuousScanning, isStreaming, autoScanEnabled, isProcessing, detectPlate]);
+
+  // Reinitialize OCR when mode changes
+  useEffect(() => {
+    if (ocrWorker) {
+      console.log("Mode changed, reinitializing OCR...");
+      ocrWorker.terminate();
+      setOcrWorker(null);
+      setIsOcrReady(false);
+      
+      // Reinitialize with new mode
+      const initOcr = async () => {
+        try {
+          console.log("Reinitializing OCR with simple mode:", simpleMode);
+          setOcrError("");
+          
+          const worker = await createWorker('eng', 1, {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+              }
+            }
+          });
+          
+          if (!simpleMode) {
+            await worker.setParameters({
+              tessedit_pageseg_mode: '6',
+              tessedit_ocr_engine_mode: '1',
+            });
+          }
+          
+          setOcrWorker(worker);
+          setIsOcrReady(true);
+          setOcrError("");
+          console.log("OCR reinitialized successfully");
+        } catch (error) {
+          console.error("Failed to reinitialize OCR worker:", error);
+          setIsOcrReady(false);
+          setOcrError(`OCR reinitialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      };
+
+      initOcr();
+    }
+  }, [simpleMode]);
 
   // Expose test function to global scope for debugging
   useEffect(() => {
@@ -267,7 +351,7 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
       console.log("OCR Worker:", !!ocrWorker);
       console.log("Video Ready:", !!videoRef.current);
       console.log("Video Dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
-      console.log("Auto-Scan Enabled:", autoScanEnabled);
+      console.log("Simple Mode:", simpleMode);
       
       if (isOcrReady && ocrWorker && videoRef.current) {
         detectPlate();
@@ -275,7 +359,7 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
         console.log("OCR not ready for testing");
       }
     };
-  }, [isOcrReady, ocrWorker, videoRef, detectPlate, autoScanEnabled]);
+  }, [isOcrReady, ocrWorker, videoRef, detectPlate, simpleMode]);
 
   return (
     <div className="relative">
@@ -324,12 +408,14 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
             {/* Scanning mode indicator */}
             {!detectedPlate && (
               <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-primary px-3 py-1 rounded text-sm font-semibold text-primary-foreground">
-                {autoScanEnabled ? "Fast auto-scanning..." : "Position vehicle and click Detect Plate"}
+                {simulationMode ? "Auto-scanning..." : 
+                 autoScanEnabled ? (continuousScanning ? "Fast auto-scanning..." : "Auto-scanning...") : 
+                 "Position vehicle and click Detect Plate"}
               </div>
             )}
             
             {/* Scanning area hint */}
-            {!detectedPlate && (
+            {!detectedPlate && !simulationMode && (
               <div className="absolute top-1/4 left-1/4 right-1/4 bottom-1/4 border border-primary/30 rounded-lg flex items-center justify-center">
                 <div className="bg-primary/20 px-2 py-1 rounded text-xs text-primary-foreground">
                   Scan Area
@@ -355,17 +441,25 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
       <div className="mt-4 flex items-center space-x-2">
         <Button
           onClick={detectPlate}
-          disabled={!isStreaming || isProcessing || !isOcrReady}
+          disabled={!isStreaming || isProcessing || (!isOcrReady && !simulationMode)}
           className="flex-1"
           data-testid="button-detect-plate"
         >
           <Camera className="w-5 h-5 mr-2" />
           {isProcessing ? "Processing..." : 
-           !isOcrReady ? "Loading OCR..." : 
+           !isOcrReady && !simulationMode ? "Loading OCR..." : 
            "Detect Plate"}
         </Button>
         
-        {isOcrReady && (
+        <Button
+          variant="outline"
+          onClick={simulationMode ? () => setSimulationMode(false) : () => setSimulationMode(true)}
+          data-testid="button-simulation-mode"
+        >
+          {simulationMode ? "Disable" : "Enable"} Demo Mode
+        </Button>
+        
+        {!simulationMode && isOcrReady && (
           <Button
             variant="outline"
             onClick={() => setAutoScanEnabled(!autoScanEnabled)}
@@ -376,7 +470,29 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
           </Button>
         )}
         
-        {isOcrReady && (
+        {!simulationMode && isOcrReady && autoScanEnabled && (
+          <Button
+            variant="outline"
+            onClick={() => setContinuousScanning(!continuousScanning)}
+            data-testid="button-continuous-scan"
+            className={continuousScanning ? "bg-green-500 text-white" : ""}
+          >
+            {continuousScanning ? "Fast" : "Normal"} Mode
+          </Button>
+        )}
+        
+        {!simulationMode && isOcrReady && (
+          <Button
+            variant="outline"
+            onClick={() => setSimpleMode(!simpleMode)}
+            data-testid="button-simple-mode"
+            className={simpleMode ? "bg-primary text-primary-foreground" : ""}
+          >
+            {simpleMode ? "Advanced" : "Simple"} Mode
+          </Button>
+        )}
+        
+        {!simulationMode && isOcrReady && (
           <Button
             variant="outline"
             onClick={() => setShowDebugInfo(!showDebugInfo)}
@@ -397,45 +513,64 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
         )}
       </div>
       
-      <div className="mt-2 p-2 bg-info/10 border border-info/20 rounded-lg">
-        <p className="text-xs text-info font-medium">
-          📷 Fast auto-scanning mode - Real-time vehicle detection
-        </p>
-        <p className="text-xs text-info/80 mt-1">
-          Position vehicle anywhere in the camera view - automatic detection every 800ms
-        </p>
-        {!isOcrReady && !ocrError && (
+      {simulationMode && (
+        <div className="mt-2 p-2 bg-warning/10 border border-warning/20 rounded-lg">
+          {/* <p className="text-xs text-warning font-medium">
+            ⚠️ Demo mode active - generating random vehicle numbers for testing
+          </p>
           <p className="text-xs text-warning/80 mt-1">
-            ⏳ OCR engine is loading... Please wait
+            Disable demo mode for real camera-based detection
+          </p> */}
+        </div>
+      )}
+      
+      {!simulationMode && (
+        <div className="mt-2 p-2 bg-info/10 border border-info/20 rounded-lg">
+          {/* <p className="text-xs text-info font-medium">
+            📷 Real camera mode - Fast scanning with image preprocessing
+          </p> */}
+          <p className="text-xs text-info/80 mt-1">
+            Position vehicle anywhere in the camera view - no need to align with the box
           </p>
-        )}
-        {isOcrReady && !ocrError && (
-          <p className="text-xs text-success/80 mt-1">
-            ✅ OCR engine ready - Fast auto-scanning enabled
-          </p>
-        )}
-        {ocrError && (
-          <p className="text-xs text-destructive/80 mt-1">
-            ❌ {ocrError}
-          </p>
-        )}
-        
-        {autoScanEnabled && (
-          <p className="text-xs text-warning/80 mt-1">
-            🔄 Auto-scanning active - Detecting plates every 800ms
-          </p>
-        )}
-        
-        {/* Debug section */}
-        {showDebugInfo && (
-          <div className="mt-2 pt-2 border-t border-info/20">
-            <div className="p-2 bg-black/5 rounded text-xs font-mono">
-              <p className="text-muted-foreground mb-1">Last OCR Result:</p>
-              <p className="break-all">{lastOcrText || "No text detected"}</p>
+          {!isOcrReady && !ocrError && (
+            <p className="text-xs text-warning/80 mt-1">
+              {/* ⏳ OCR engine is loading... Please wait */}
+            </p>
+          )}
+          {isOcrReady && !ocrError && (
+            <p className="text-xs text-success/80 mt-1">
+              {/* ✅ OCR engine ready - Fast scanning enabled */}
+            </p>
+          )}
+          {ocrError && (
+            <p className="text-xs text-destructive/80 mt-1">
+              ❌ {ocrError}
+            </p>
+          )}
+          
+          {continuousScanning && (
+            <p className="text-xs text-warning/80 mt-1">
+              🔄 Continuous scanning active - Detecting plates every second
+            </p>
+          )}
+          
+          {simpleMode && (
+            <p className="text-xs text-info/80 mt-1">
+              🔧 Simple mode active - Using basic OCR settings for better compatibility
+            </p>
+          )}
+          
+          {/* Debug section */}
+          {showDebugInfo && (
+            <div className="mt-2 pt-2 border-t border-info/20">
+              <div className="p-2 bg-black/5 rounded text-xs font-mono">
+                <p className="text-muted-foreground mb-1">Last OCR Result:</p>
+                <p className="break-all">{lastOcrText || "No text detected"}</p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
