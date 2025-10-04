@@ -503,31 +503,31 @@ export default function WebcamFeed({ onPlateDetected, detectedPlate }: WebcamFee
       
       {simulationMode && (
         <div className="mt-2 p-2 bg-warning/10 border border-warning/20 rounded-lg">
-          <p className="text-xs text-warning font-medium">
+          {/* <p className="text-xs text-warning font-medium">
             ⚠️ Demo mode active - generating random vehicle numbers for testing
           </p>
           <p className="text-xs text-warning/80 mt-1">
             Disable demo mode for real camera-based detection
-          </p>
+          </p> */}
         </div>
       )}
       
       {!simulationMode && (
         <div className="mt-2 p-2 bg-info/10 border border-info/20 rounded-lg">
-          <p className="text-xs text-info font-medium">
+          {/* <p className="text-xs text-info font-medium">
             📷 Real camera mode - Fast scanning with image preprocessing
-          </p>
+          </p> */}
           <p className="text-xs text-info/80 mt-1">
             Position vehicle anywhere in the camera view - no need to align with the box
           </p>
           {!isOcrReady && !ocrError && (
             <p className="text-xs text-warning/80 mt-1">
-              ⏳ OCR engine is loading... Please wait
+              {/* ⏳ OCR engine is loading... Please wait */}
             </p>
           )}
           {isOcrReady && !ocrError && (
             <p className="text-xs text-success/80 mt-1">
-              ✅ OCR engine ready - Fast scanning enabled
+              {/* ✅ OCR engine ready - Fast scanning enabled */}
             </p>
           )}
           {ocrError && (
