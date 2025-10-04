@@ -24,12 +24,25 @@ export function useWebcam(): UseWebcamReturn {
         throw new Error("Camera access is not supported in this browser");
       }
 
-      // Request camera access
+      // Request camera access with high-resolution settings for distance scanning
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 3840, min: 1920 }, // 4K preferred, Full HD minimum
+          height: { ideal: 2160, min: 1080 }, // 4K preferred, Full HD minimum
           facingMode: "environment", // Prefer back camera if available
+          frameRate: { ideal: 30, min: 15 }, // Higher frame rate for better scanning
+          aspectRatio: 16/9, // 16:9 aspect ratio
+          // Advanced camera settings for better focus and clarity
+          focusMode: "continuous", // Continuous auto-focus
+          whiteBalanceMode: "continuous", // Auto white balance
+          exposureMode: "continuous", // Auto exposure
+          // Request specific capabilities for better barcode detection
+          advanced: [
+            { focusMode: "continuous" },
+            { whiteBalanceMode: "continuous" },
+            { exposureMode: "continuous" },
+            { torch: true }, // Enable torch if available
+          ]
         },
         audio: false,
       });

@@ -265,13 +265,29 @@ export default function Dashboard() {
                 <p className="text-muted-foreground mb-4">
                   Open the camera station interface on entry point laptops for live monitoring
                 </p>
-                <button
-                  onClick={() => window.open('/camera-station', '_blank')}
-                  className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                  data-testid="button-camera-station"
-                >
-                  Open Camera Station
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => window.open('/camera-station', '_blank')}
+                    className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                    data-testid="button-camera-station"
+                  >
+                    Open Camera Station
+                  </button>
+                  <button
+                    onClick={() => window.open('/camera-test', '_blank')}
+                    className="px-6 py-3 bg-secondary text-secondary-foreground rounded-lg font-medium hover:bg-secondary/90 transition-colors"
+                    data-testid="button-camera-test"
+                  >
+                    Test Camera
+                  </button>
+                  <button
+                    onClick={() => window.open('/camera-test-simple', '_blank')}
+                    className="px-6 py-3 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+                    data-testid="button-camera-test-simple"
+                  >
+                    Simple Camera Test
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { Camera, Scan, Settings, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import WebcamFeed from "@/components/webcam-feed";
-import BarcodeScanner from "@/components/barcode-scanner";
+import SimpleQRScanner from "@/components/SimpleQRScanner";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useMutation } from "@tanstack/react-query";
@@ -215,9 +215,12 @@ export default function CameraStation() {
             </div>
             
             <CardContent className="p-6">
-              <BarcodeScanner
+              <SimpleQRScanner
                 onBarcodeScanned={handleBarcodeScanned}
-                scannedId={scannedStudentId}
+                scannedBarcode={scannedStudentId}
+                showControls={true}
+                autoStart={false}
+                className="w-full"
               />
               
               {/* Student Info Display */}
